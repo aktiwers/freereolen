@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Freereolen</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { width: 280px; margin: 0; padding: 12px 14px; }
+  h1 { font-size: 13px; margin: 0 0 8px; font-weight: 600; opacity: 0.7; }
+  #info { font-size: 13px; line-height: 1.4; min-height: 18px; }
+  #info .title { font-weight: 600; }
+  #info .author { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  #status { font-size: 12px; margin-top: 8px; min-height: 14px; opacity: 0.85; }
+  #status.error { color: #c33; opacity: 1; }
+  #status.success { color: #2a7; opacity: 1; }
+  progress { width: 100%; height: 6px; margin-top: 8px; }
+  progress[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <h1>Freereolen</h1>
+  <div id="info">Looking up book…</div>
+  <progress id="progress" hidden max="100" value="0"></progress>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Freereolen",
+  "version": "1.0.0",
+  "description": "Download borrowed library ebooks (bibliotek.kk.dk and other DPL-React readers) as plain EPUB files.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Freereolen — download EPUB",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["activeTab"],
+  "host_permissions": [
+    "https://bookstreaming.pubhub.dk/*",
+    "https://*.wedobooks.io/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "freereolen@bolli.local",
+      "strict_min_version": "121.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

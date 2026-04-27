@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="22" fill="#1f6feb"/>
+  <!-- Down arrow stem and head -->
+  <rect x="56" y="22" width="16" height="56" fill="#fff"/>
+  <polygon points="32,68 96,68 64,104" fill="#fff"/>
+  <!-- Tray -->
+  <rect x="22" y="100" width="84" height="10" rx="2" fill="#fff"/>
+</svg>

@@ -1,64 +1,111 @@
 * freereolen
 
-** IMPORTANT NOTE
-
-The script currently doesn't work, as ereolen.dk has changed their site. The way
-it now works is by fetching a binary blob and decrypting it client-side. Reverse
-engineering shouldn't be too hard, but I haven't had time for a good look yet.
-
 ** Purpose
 
-Turn books from [[https://ereolen.dk][ereolen.dk]] into proper ePub files, to make it possible to read
-borrowed books with any ePub reader. ePubs created with ~freereolen~ have been
-tested and found working in [[https://fbreader.org/][FBReader]] on Android and Linux, on a Barnes&Noble
-nook (gen1) and on a Kobo Libra H2O.
+Turn books borrowed via the new DPL-React based library reader (e.g.
+[[https://bibliotek.kk.dk][bibliotek.kk.dk]], which is also what users coming from ereolen.dk are now
+redirected to) into plain ePub files that can be read in any ePub reader.
 
-Works by grabbing pages and resources using curl, doing a bit of magic and
-converting it all into an ePub using ~zip~ and ePub XML templates rendered with
-~bash~.
+The reader fetches a single AES-encrypted EPUB blob from
+~bookstreaming.pubhub.dk~ and decrypts it client-side using a key that is itself
+wrapped with a key-encryption-key hardcoded in the public reader JavaScript.
+~run.sh~ replicates that decryption with ~openssl~, producing a normal EPUB.
 
-** Features
-+ automagically creates ToC even for (some) really broken books
-+ i18n layer to translate ToC names into local languages
-+ fetches external resources
-+ lints HTML using ~tidy~
+There are two ways to use ~freereolen~: a browser extension (Chrome/Firefox) and
+a command-line script. Both produce the same plain EPUB; pick whichever fits.
 
-** Dependencies
-+ ~awk~
+** Browser extension
+A toolbar icon that downloads the borrowed book from whichever reader page
+you're currently on. Works on Windows, macOS and Linux — anywhere Chrome or
+Firefox runs.
+
+*** Pre-built packages
+Pre-built archives live in ~dist/~:
++ ~dist/freereolen.xpi~ — Firefox bundle
++ ~dist/freereolen-chrome.zip~ — Chrome Web Store upload bundle
+(They are byte-identical except for the file extension.) Rebuild with
+~./make-packages.sh~ after changing anything in ~extension/~.
+
+*** Installing in Chrome (or Edge, Brave, any Chromium)
+Since 2018 Chromium browsers refuse to install ~.crx~ or ~.zip~ extensions
+loaded directly from disk — the ZIP only matters if you publish to the
+Chrome Web Store. For personal use, *load unpacked*:
+
+1. Clone or download this repo.
+2. Open ~chrome://extensions~.
+3. Toggle *Developer mode* on (top-right).
+4. Click *Load unpacked* and pick the ~extension/~ folder.
+5. Pin the download-arrow icon from the puzzle-piece menu.
+
+(If you want to publish: upload ~dist/freereolen-chrome.zip~ at
+[[https://chrome.google.com/webstore/devconsole][chrome.google.com/webstore/devconsole]]; one-time $5 developer fee + review.)
+
+*** Installing in Firefox
+Regular Firefox only installs ~.xpi~ files signed by Mozilla. Pick one path:
+
++ *Mozilla-signed (recommended for normal Firefox)*: submit
+  ~dist/freereolen.xpi~ at [[https://addons.mozilla.org/developers/][addons.mozilla.org/developers/]] (free; you can keep
+  it private/self-distribution). After signing, install the returned
+  ~.xpi~ from ~about:addons → ⚙ → Install Add-on From File~.
+
++ *Developer Edition / ESR / Nightly (no signing required)*: open
+  ~about:config~, set ~xpinstall.signatures.required~ to ~false~, then
+  drag ~dist/freereolen.xpi~ onto the browser window or use
+  ~about:addons → ⚙ → Install Add-on From File~.
+
++ *Quick test in any Firefox 121+ (no signing, but resets on restart)*:
+  open ~about:debugging#/runtime/this-firefox~, click *Load Temporary
+  Add-on…*, pick ~extension/manifest.json~.
+
+*** Using the extension
+1. Borrow a book on your library site and click "Læs"/"Read".
+2. While the reader page is open (URL contains ~orderid=…~), click the
+   freereolen toolbar icon.
+3. The popup shows the title and author, downloads the encrypted file
+   (with a progress bar), decrypts it, and prompts you to save the EPUB.
+
+** Command-line script
+*** Dependencies
++ ~bash~
 + ~curl~
-+ ~dos2unix~
-+ ~grep~
++ ~jq~
++ ~openssl~
++ ~xxd~
 
-+ ~sed~
-+ ~tidy~
-
-** Usage
-See also help text:
+*** Usage
 #+begin_src sh
-./run.sh
+./run.sh '<reader-url-or-orderid>' [output.epub]
 #+end_src
 
-+ borrow a book on [[https://www.ereolen.dk][ereolen.dk]]
-+ open it for reading
-+ open the Web Developer view and select the "Network" tab
-+ apply filter so that only JavaScript is shown
-+ browse to a new page
-+ find a request whose URL matches
-  ~https://streaming.pubhub.dk/publicstreaming/v3/69f63101-9caf-40b9-a31e-b2fdb5642e3d/43c44150-9d2c-4506-8fe6-c0bb904ea563/1/?callback=jQuery11100348712123123213_123123121313&_=1231313123123~
-  (the important thing to look for is the last part of the URL before the query
-  string)
-+ run the program with the URL as argument, e.g. ~./run.sh
-  'https://streaming.pubhub.dk/publicstreaming/v3/69f63101-9caf-40b9-a31e-b2fdb5642e3d/43c44150-9d2c-4506-8fe6-c0bb904ea563/1/?callback=jQuery11100348712123123213_123123121313&_=1231313123123'~
++ borrow a book on the library site (e.g. [[https://bibliotek.kk.dk][bibliotek.kk.dk]])
++ open it for reading; the URL in the address bar will look like
+  ~https://bibliotek.kk.dk/reader?orderid=00000000-0000-0000-0000-000000000000~
++ pass that URL (or just the order-id UUID) to ~run.sh~
 
-** Known bugs
-+ doesn't work with all books, especially graphics-heavy ones (e.g. graphic
-  novels made from images and associated text)
-+ will often choke (on purpose) on links to external sites, which will need to
-  be removed or whitelisted
+The output filename defaults to ~"<author> - <title>.epub"~ in the current
+directory. Pass a second argument to override it.
 
-** Help wanted
-+ CSS tidy
-+ support for overdrive.com (as English language books are often only available
-  there)
-+ support for automatically fetching books instead of having to manually go and
-  find the correct URL
+** How it works
+1. ~GET https://bookstreaming.pubhub.dk/v1/order/metadata/<orderid>~ returns
+   ~{title, author, key, ...}~. ~key~ is base64.
+2. The wrapped ~key~ is decrypted with AES-256-CBC using a 32-byte
+   key-encryption-key (KEK) that is hardcoded in
+   ~https://reader.pubhub.dk/2.2.0/js/app.js~ (~Constants.keyEncryptionKey~), with
+   a 16-zero IV. Due to a quirk in the reader's base64 decoder
+   (~new Uint16Array(new ArrayBuffer(t))~ has half the byte length), only the
+   first 16 bytes of the ciphertext are actually fed through AES — yielding a
+   16-byte AES-128 content-encryption-key (CEK).
+3. ~GET https://bookstreaming.pubhub.dk/v1/order/file/<orderid>~ 302-redirects
+   to a signed Google Cloud Storage URL with the encrypted EPUB.
+4. The encrypted file is one stream of AES-128-CTR with the CEK and a 16-zero
+   initial counter. Decrypting the whole file yields a valid EPUB ZIP.
+
+** Notes
++ The decrypted EPUB carries the publisher's own metadata (ISBN, title, etc.)
+  and is the same content for every borrower of that title — there is no
+  per-loan watermarking in the file itself.
++ The endpoints are public; no session token or authentication header is
+  required to read metadata or file for a given order-id.
++ Older code in this repo (~get.sh~, ~tidy.sh~, ~assemble.sh~, etc.) targets the
+  previous JSONP-based ~streaming.pubhub.dk/publicstreaming/v3/...~ flow and is
+  no longer wired into ~run.sh~. It is kept for reference.
